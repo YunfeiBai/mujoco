@@ -1591,6 +1591,104 @@ TEST_F(CoreConstraintTest, FlexElementContactJacobianBarycentric) {
   }
 }
 
+// quadratic flex resting on a tilted plane, whose normal points at a surface
+// vertex next to an edge of the lattice bounding box: the light lattice nodes
+// outside the ellipsoid have large invweight0 and, at this vertex, negative
+// quadratic shape-function weights, so a weighted average of the node
+// invweight0 is negative
+static const char* kQuadraticFlexContact = R"(
+<mujoco>
+  <option cone="elliptic" jacobian="dense"/>
+  <worldbody>
+    <geom type="plane" size="1 1 .1" zaxis="1 -2 2"/>
+    <flexcomp name="ball" type="ellipsoid" dim="3" dof="quadratic"
+              count="5 5 5" spacing=".02 .02 .02" cellcount="2 2 2"
+              mass=".08" pos=".014333 -.028667 .028667">
+      <elasticity young="5e4" poisson=".3" damping=".005"/>
+      <contact condim="3" solref=".004 1" solimp=".95 .99 .001"
+               selfcollide="none"/>
+    </flexcomp>
+  </worldbody>
+</mujoco>
+)";
+
+// the approximate diagonal of J*inv(M)*J' is positive, and exact for
+// independent node bodies
+TEST_F(CoreConstraintTest, QuadraticFlexContactDiagApprox) {
+  char error[1024];
+  MjModelPtr model =
+      LoadModelFromString(kQuadraticFlexContact, error, sizeof(error));
+  ASSERT_THAT(model.get(), NotNull()) << error;
+  ASSERT_EQ(model->flex_interp[0], 2);
+  MjDataPtr data = MakeData(model);
+
+  // continuous-time integrator: the solve metric is M, compare with the exact
+  // diagonal
+  mj_forward(model.get(), data.get());
+  ASSERT_GT(data->ncon, 0);
+
+  int nv = model->nv;
+  std::vector<mjtNum> Minv_J(nv);
+  mjtNum min_average = mjMAXVAL;
+  for (int i = 0; i < data->ncon; i++) {
+    const mjContact* con = data->contact + i;
+    int adr = con->efc_address;
+    ASSERT_GE(adr, 0);
+
+    // weighted average of node invweight0 on the flex side (side 0 is the
+    // static plane)
+    int body[mjMAXFLEXINTERPW];
+    mjtNum weight[mjMAXFLEXINTERPW];
+    int nb = mj_contactBodyWeight(model.get(), data.get(), con, 1, body,
+                                  weight);
+    mjtNum average = 0;
+    for (int k = 0; k < nb; k++) {
+      average += weight[k] * model->body_invweight0[2*body[k]];
+    }
+    min_average = mju_min(min_average, average);
+
+    // exact diagonal of the normal row
+    const mjtNum* J = data->efc_J + adr*nv;
+    mj_solveM(model.get(), data.get(), Minv_J.data(), J, 1);
+    mjtNum exact = mju_dot(J, Minv_J.data(), nv);
+    ASSERT_GT(exact, 0);
+
+    // the node bodies have independent dofs, so the approximation is exact
+    EXPECT_GT(data->efc_R[adr], mjMINVAL) << "contact " << i;
+    EXPECT_THAT(data->efc_diagA[adr],
+                MjNear(exact, 1e-12*exact, 1e-4*exact))
+        << "contact " << i;
+  }
+
+  // the model exercises a contact whose weighted average is not positive
+  EXPECT_LE(min_average, 0);
+
+  // discrete integrator: both solvers converge and the flex does not blow up
+  model->opt.integrator = mjINT_DISCRETE;
+  for (mjtSolver solver : {mjSOL_NEWTON, mjSOL_CG}) {
+    model->opt.solver = solver;
+    mj_resetData(model.get(), data.get());
+    int max_niter = 0;
+    mjtNum max_speed = 0;
+    for (int step = 0; step < 25; step++) {
+      mj_step(model.get(), data.get());
+      int nisland = mjMIN(mjMAX(data->nisland, 1), mjNISLAND);
+      for (int island = 0; island < nisland; island++) {
+        max_niter = mjMAX(max_niter, data->solver_niter[island]);
+      }
+      for (int i = 0; i < nv; i++) {
+        max_speed = mju_max(max_speed, mju_abs(data->qvel[i]));
+      }
+    }
+#ifndef mjUSESINGLE
+    // the default solver tolerance is only reachable in double precision
+    EXPECT_LT(max_niter, model->opt.iterations) << "solver " << solver;
+#endif
+    EXPECT_EQ(data->warning[mjWARN_BADQACC].number, 0) << "solver " << solver;
+    EXPECT_LT(max_speed, 5) << "solver " << solver;
+  }
+}
+
 // ------------------------------- adhesion ------------------------------------
 
 static const char* kAdhereCeiling = R"(

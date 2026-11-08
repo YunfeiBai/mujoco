@@ -1798,7 +1798,7 @@ void mj_diagApprox(const mjModel* m, mjData* d) {
       con = d->contact + id;
       dim = con->dim;
 
-      // add the average translation and rotation components from both sides
+      // add the translation and rotation components from both sides
       tran = rot = 0;
       for (int side=0; side < 2; side++) {
         // get bodies and weights
@@ -1806,10 +1806,18 @@ void mj_diagApprox(const mjModel* m, mjData* d) {
         mjtNum bweight[mjMAXFLEXINTERPW];
         int nb = mj_contactBodyWeight(m, d, con, side, bid, bweight);
 
-        // add weighted average over bodies
+        // interpolated flex: the weights are shape functions of distinct node bodies and can be
+        // negative (quadratic Lagrange basis, shell-mode TFI), so their weighted average of the
+        // node inverse weights can vanish or change sign; since J = sum_k w_k J_k, use instead
+        // the diagonal of J*inv(M)*J' for independent bodies, sum_k w_k^2 * invweight_k
+        int interp = (con->geom[side] < 0 && m->flex_interp[con->flex[side]]);
+
+        // add weighted average over bodies, with squared weights for interpolated flexes (vertex
+        // flex weights are non-negative, but their bodies can repeat)
         for (int k=0; k < nb; k++) {
-          tran += m->body_invweight0[2*bid[k]] * bweight[k];
-          rot += m->body_invweight0[2*bid[k]+1] * bweight[k];
+          mjtNum w = interp ? bweight[k]*bweight[k] : bweight[k];
+          tran += m->body_invweight0[2*bid[k]] * w;
+          rot += m->body_invweight0[2*bid[k]+1] * w;
         }
       }
 

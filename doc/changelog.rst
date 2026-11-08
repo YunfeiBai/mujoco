@@ -15,6 +15,14 @@ Bug fixes
   :ref:`mju_error`, so one unloadable library in the plugin directory no longer aborts :ref:`simulate<saSimulate>` at
   startup. In the 4.0.0 macOS and Linux archives this happened with the USD decoder plugin, which can only be loaded
   from a Python process.
+- Fixed the :ref:`diagonal approximation<soExactDiag>` of the constraint inertia for contacts with interpolated flexes
+  (**trilinear** or **quadratic** :ref:`dofs<body-flexcomp-dof>`). It averaged the inverse weights of the lattice node
+  bodies with the interpolation weights at the contact point, but the quadratic weights are partly negative and lattice
+  nodes outside the flex volume (e.g., at the corners of an ellipsoid's bounding box) are very light, so the average
+  could vanish or become negative. ``efc_R`` was then clamped to ``mjMINVAL``, making the contact infinitely stiff, and
+  the Newton and CG solvers diverged. The inverse weights are now summed with the squared interpolation weights, which
+  is exact for independent node bodies. For trilinear flexes, where the average overestimated the diagonal, contacts
+  now get a correspondingly smaller ``efc_R``.
 
 Version 4.0.0 (November 6, 2026)
 --------------------------------
