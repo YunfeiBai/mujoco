@@ -1,0 +1,49 @@
+<!-- A soft ball on a table, to be picked up by the dexterous hand of hand.xml.
+
+     The ball is a volumetric flex (dim="3") with continuum elasticity. Its deformation is
+     interpolated from a 3 x 3 x 3 grid of trilinear cells (192 dofs), while collisions and
+     rendering use the 9 x 9 x 9 surface of the ellipsoid. See soft_grasp.py for a scripted
+     grasp, and README.md for modeling notes.
+-->
+<mujoco model="Dexterous hand grasping a soft ball">
+  <include file="hand.xml"/>
+
+  <option timestep="0.002" integrator="discrete" solver="CG" iterations="100" tolerance="1e-6"
+          cone="elliptic" impratio="10"/>
+
+  <size memory="10M"/>
+
+  <statistic center="0 0 0.1" extent="0.3" meansize="0.03"/>
+
+  <visual>
+    <global azimuth="130" elevation="-15" offwidth="1920" offheight="1080"/>
+    <quality shadowsize="4096"/>
+    <headlight ambient="0.2 0.2 0.2" diffuse="0.4 0.4 0.4" specular="0.1 0.1 0.1"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="512"/>
+    <texture name="table" type="2d" builtin="checker" rgb1=".2 .3 .4" rgb2=".1 .15 .2" width="512"
+             height="512" mark="cross" markrgb=".8 .8 .8"/>
+    <material name="table" texture="table" texrepeat="10 10" texuniform="true" reflectance="0.2"/>
+    <texture name="ball" type="2d" builtin="checker" rgb1="0.95 0.33 0.22" rgb2="0.98 0.82 0.3"
+             width="512" height="512"/>
+    <material name="ball" texture="ball" texrepeat="4 4" specular="0.3" shininess="0.3"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0 -0.4 1.2" dir="0 0.3 -1" diffuse="0.7 0.7 0.7" specular="0.2 0.2 0.2"/>
+    <camera name="side" pos="0.346 -0.412 0.234" xyaxes="0.766 0.643 0 -0.134 0.159 0.978"/>
+    <camera name="track" mode="targetbody" target="palm" pos="0.346 -0.412 0.234"/>
+    <geom name="table" type="plane" size="0 0 0.05" material="table"/>
+
+    <flexcomp name="ball" type="ellipsoid" dim="3" count="9 9 9" spacing="0.01125 0.01125 0.01125"
+              pos="0 0 0.046" radius="0.001" mass="0.08" dof="trilinear" cellcount="3 3 3"
+              material="ball">
+      <contact condim="3" friction="1 0.005 0.0001" solref="0.004 1" solimp="0.95 0.99 0.001"
+               selfcollide="none"/>
+      <elasticity young="1.5e4" poisson="0.3" damping="0.005"/>
+    </flexcomp>
+  </worldbody>
+</mujoco>

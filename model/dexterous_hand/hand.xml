@@ -1,0 +1,242 @@
+<!-- A five-fingered dexterous hand built from primitive geoms, mounted on a 6-dof wrist.
+
+     The palm frame has x pointing toward the fingers, y toward the thumb and the palmar
+     side facing -z, so at the zero pose the right hand is palm-down with the fingers
+     pointing along +x.
+
+     - Four fingers with abduction, MCP and PIP joints. The DIP joints are coupled to the
+       PIP joints by equality constraints, as in tendon-driven fingers.
+     - An opposable thumb: in-plane abduction and opposition at the base (the opposition
+       axis is diagonal, so it swings the thumb under the palm), then MCP and IP flexion.
+     - 16 position actuators for the hand, 6 for the mount (3 slides and 3 hinges).
+     - Touch sensors on the five fingertips.
+     - Gravity compensation on all hand bodies, as provided by a robot arm.
+-->
+<mujoco model="Dexterous hand">
+  <compiler angle="radian" autolimits="true"/>
+
+  <default>
+    <default class="hand">
+      <geom type="capsule" material="hand_shell" contype="2" conaffinity="1" condim="3"
+            friction="1.2 0.01 0.0005" solref="0.004 1" solimp="0.95 0.99 0.001"/>
+      <joint type="hinge" damping="0.05" armature="0.002"/>
+      <position kp="3" dampratio="1" forcerange="-1.5 1.5" inheritrange="1"/>
+      <site group="4" size="0.004" rgba="1 .2 .2 1"/>
+      <default class="palm">
+        <geom type="box" material="hand_dark"/>
+      </default>
+      <default class="visual">
+        <geom contype="0" conaffinity="0" group="1" density="0" material="hand_dark"/>
+        <default class="joint_cap">
+          <geom type="cylinder" size="0.0072 0.0102" zaxis="0 1 0"/>
+        </default>
+      </default>
+      <default class="pad">
+        <geom type="sphere" material="hand_pad" friction="1.5 0.02 0.001"/>
+      </default>
+      <default class="touch">
+        <site type="capsule" size="0.0118" rgba="0.2 0.8 0.2 0.3"/>
+      </default>
+      <default class="abd">
+        <joint axis="0 0 1" range="-0.25 0.25"/>
+        <position kp="2" forcerange="-0.8 0.8"/>
+      </default>
+      <default class="mcp">
+        <joint axis="0 1 0" range="-0.2 1.6"/>
+        <position kp="4" forcerange="-2 2"/>
+      </default>
+      <default class="pip">
+        <joint axis="0 1 0" range="0 1.75"/>
+        <position kp="3" forcerange="-1.5 1.5"/>
+      </default>
+      <default class="dip">
+        <joint axis="0 1 0" range="0 1.5"/>
+      </default>
+      <default class="thumb_abd">
+        <joint axis="0 0 1" range="-0.5 1.0"/>
+        <position kp="3" forcerange="-1.5 1.5"/>
+      </default>
+      <default class="thumb_rot">
+        <joint axis="-1 1 0" range="0 1.8"/>
+        <position kp="4" forcerange="-2 2"/>
+      </default>
+      <default class="thumb_mcp">
+        <joint axis="0 0 -1" range="-0.2 1.3"/>
+        <position kp="3" forcerange="-1.5 1.5"/>
+      </default>
+      <default class="thumb_ip">
+        <joint axis="0 0 -1" range="-0.2 1.5"/>
+        <position kp="2" forcerange="-1 1"/>
+      </default>
+    </default>
+
+    <default class="mount">
+      <joint damping="20" armature="0.05"/>
+      <default class="mount_slide">
+        <joint type="slide" range="-0.3 0.3"/>
+        <position kp="2000" dampratio="1" forcerange="-200 200" inheritrange="1"/>
+      </default>
+      <default class="mount_hinge">
+        <joint type="hinge" damping="2"/>
+        <position kp="100" dampratio="1" forcerange="-50 50" inheritrange="1"/>
+      </default>
+    </default>
+  </default>
+
+  <asset>
+    <material name="hand_shell" rgba="0.86 0.87 0.89 1" specular="0.5" shininess="0.5"/>
+    <material name="hand_dark" rgba="0.18 0.19 0.22 1" specular="0.4" shininess="0.4"/>
+    <material name="hand_pad" rgba="0.95 0.55 0.15 1" specular="0.2" shininess="0.2"/>
+  </asset>
+
+  <worldbody>
+    <body name="palm" pos="-0.065 0 0.24" childclass="hand" gravcomp="1">
+      <joint name="mount_x" class="mount_slide" axis="1 0 0"/>
+      <joint name="mount_y" class="mount_slide" axis="0 1 0"/>
+      <joint name="mount_z" class="mount_slide" axis="0 0 1"/>
+      <joint name="wrist_yaw" class="mount_hinge" axis="0 0 1" range="-3.14 3.14"/>
+      <joint name="wrist_pitch" class="mount_hinge" axis="0 1 0" range="-1.2 1.2"/>
+      <joint name="wrist_roll" class="mount_hinge" axis="1 0 0" range="-3.14 3.14"/>
+      <geom name="palm" class="palm" pos="0.048 0 0" size="0.048 0.042 0.013"/>
+      <geom name="palm_heel" fromto="0.004 -0.034 0 0.004 0.034 0" size="0.013" material="hand_dark"/>
+      <geom name="knuckles" fromto="0.093 -0.034 0 0.093 0.034 0" size="0.0125" material="hand_dark"/>
+      <geom name="back_plate" class="visual" type="box" pos="0.05 0 0.0128" size="0.036 0.036 0.0015"
+            material="hand_shell"/>
+      <geom name="wrist" class="visual" type="cylinder" fromto="-0.002 0 0 -0.022 0 0.008"
+            size="0.026"/>
+      <geom name="forearm" class="visual" type="cylinder" fromto="-0.02 0 0.007 -0.17 0 0.068"
+            size="0.02" material="hand_shell"/>
+      <site name="palm_center" pos="0.055 0 -0.013"/>
+
+      <body name="index_proximal" pos="0.098 0.0315 0" gravcomp="1">
+        <joint name="index_abd" class="abd"/>
+        <joint name="index_mcp" class="mcp"/>
+        <geom fromto="0 0 0 0.044 0 0" size="0.0095"/>
+        <body name="index_middle" pos="0.044 0 0" gravcomp="1">
+          <joint name="index_pip" class="pip"/>
+          <geom fromto="0 0 0 0.026 0 0" size="0.009"/>
+          <geom class="joint_cap"/>
+          <body name="index_distal" pos="0.026 0 0" gravcomp="1">
+            <joint name="index_dip" class="dip"/>
+            <geom fromto="0 0 0 0.016 0 0" size="0.0085"/>
+            <geom class="joint_cap" size="0.0068 0.0096"/>
+            <geom name="index_tip" class="pad" pos="0.017 0 -0.001" size="0.0088"/>
+            <site name="index_touch" class="touch" fromto="0.002 0 0 0.02 0 -0.001"/>
+          </body>
+        </body>
+      </body>
+
+      <body name="middle_proximal" pos="0.102 0.0105 0" gravcomp="1">
+        <joint name="middle_abd" class="abd"/>
+        <joint name="middle_mcp" class="mcp"/>
+        <geom fromto="0 0 0 0.048 0 0" size="0.0095"/>
+        <body name="middle_middle" pos="0.048 0 0" gravcomp="1">
+          <joint name="middle_pip" class="pip"/>
+          <geom fromto="0 0 0 0.03 0 0" size="0.009"/>
+          <geom class="joint_cap"/>
+          <body name="middle_distal" pos="0.03 0 0" gravcomp="1">
+            <joint name="middle_dip" class="dip"/>
+            <geom fromto="0 0 0 0.017 0 0" size="0.0085"/>
+            <geom class="joint_cap" size="0.0068 0.0096"/>
+            <geom name="middle_tip" class="pad" pos="0.018 0 -0.001" size="0.0088"/>
+            <site name="middle_touch" class="touch" fromto="0.002 0 0 0.021 0 -0.001"/>
+          </body>
+        </body>
+      </body>
+
+      <body name="ring_proximal" pos="0.099 -0.0105 0" gravcomp="1">
+        <joint name="ring_abd" class="abd"/>
+        <joint name="ring_mcp" class="mcp"/>
+        <geom fromto="0 0 0 0.045 0 0" size="0.0095"/>
+        <body name="ring_middle" pos="0.045 0 0" gravcomp="1">
+          <joint name="ring_pip" class="pip"/>
+          <geom fromto="0 0 0 0.028 0 0" size="0.009"/>
+          <geom class="joint_cap"/>
+          <body name="ring_distal" pos="0.028 0 0" gravcomp="1">
+            <joint name="ring_dip" class="dip"/>
+            <geom fromto="0 0 0 0.016 0 0" size="0.0085"/>
+            <geom class="joint_cap" size="0.0068 0.0096"/>
+            <geom name="ring_tip" class="pad" pos="0.017 0 -0.001" size="0.0088"/>
+            <site name="ring_touch" class="touch" fromto="0.002 0 0 0.02 0 -0.001"/>
+          </body>
+        </body>
+      </body>
+
+      <body name="little_proximal" pos="0.093 -0.0315 0" gravcomp="1">
+        <joint name="little_abd" class="abd"/>
+        <joint name="little_mcp" class="mcp"/>
+        <geom fromto="0 0 0 0.037 0 0" size="0.009"/>
+        <body name="little_middle" pos="0.037 0 0" gravcomp="1">
+          <joint name="little_pip" class="pip"/>
+          <geom fromto="0 0 0 0.022 0 0" size="0.0085"/>
+          <geom class="joint_cap" size="0.0068 0.0096"/>
+          <body name="little_distal" pos="0.022 0 0" gravcomp="1">
+            <joint name="little_dip" class="dip"/>
+            <geom fromto="0 0 0 0.014 0 0" size="0.008"/>
+            <geom class="joint_cap" size="0.0064 0.009"/>
+            <geom name="little_tip" class="pad" pos="0.015 0 -0.001" size="0.0083"/>
+            <site name="little_touch" class="touch" fromto="0.002 0 0 0.018 0 -0.001" size="0.0112"/>
+          </body>
+        </body>
+      </body>
+
+      <body name="thumb_metacarpal" pos="0.012 0.028 -0.008" gravcomp="1">
+        <joint name="thumb_abd" class="thumb_abd"/>
+        <joint name="thumb_rot" class="thumb_rot"/>
+        <geom fromto="0 0 0 0.021 0.021 0" size="0.0115" material="hand_dark"/>
+        <body name="thumb_proximal" pos="0.021 0.021 0" euler="0 0 0.785398" gravcomp="1">
+          <joint name="thumb_mcp" class="thumb_mcp"/>
+          <geom fromto="0 0 0 0.04 0 0" size="0.0105"/>
+          <body name="thumb_distal" pos="0.04 0 0" gravcomp="1">
+            <joint name="thumb_ip" class="thumb_ip"/>
+            <geom fromto="0 0 0 0.02 0 0" size="0.0095"/>
+            <geom class="joint_cap" zaxis="0 0 1" size="0.0078 0.0108"/>
+            <geom name="thumb_tip" class="pad" pos="0.021 0 0" size="0.0098"/>
+            <site name="thumb_touch" class="touch" fromto="0.002 0 0 0.023 0 0" size="0.0128"/>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <equality>
+    <joint joint1="index_dip" joint2="index_pip" polycoef="0 0.8 0 0 0"/>
+    <joint joint1="middle_dip" joint2="middle_pip" polycoef="0 0.8 0 0 0"/>
+    <joint joint1="ring_dip" joint2="ring_pip" polycoef="0 0.8 0 0 0"/>
+    <joint joint1="little_dip" joint2="little_pip" polycoef="0 0.8 0 0 0"/>
+  </equality>
+
+  <actuator>
+    <position name="mount_x" class="mount_slide" joint="mount_x"/>
+    <position name="mount_y" class="mount_slide" joint="mount_y"/>
+    <position name="mount_z" class="mount_slide" joint="mount_z"/>
+    <position name="wrist_yaw" class="mount_hinge" joint="wrist_yaw"/>
+    <position name="wrist_pitch" class="mount_hinge" joint="wrist_pitch"/>
+    <position name="wrist_roll" class="mount_hinge" joint="wrist_roll"/>
+
+    <position name="index_abd" class="abd" joint="index_abd"/>
+    <position name="index_mcp" class="mcp" joint="index_mcp"/>
+    <position name="index_pip" class="pip" joint="index_pip"/>
+    <position name="middle_abd" class="abd" joint="middle_abd"/>
+    <position name="middle_mcp" class="mcp" joint="middle_mcp"/>
+    <position name="middle_pip" class="pip" joint="middle_pip"/>
+    <position name="ring_abd" class="abd" joint="ring_abd"/>
+    <position name="ring_mcp" class="mcp" joint="ring_mcp"/>
+    <position name="ring_pip" class="pip" joint="ring_pip"/>
+    <position name="little_abd" class="abd" joint="little_abd"/>
+    <position name="little_mcp" class="mcp" joint="little_mcp"/>
+    <position name="little_pip" class="pip" joint="little_pip"/>
+    <position name="thumb_abd" class="thumb_abd" joint="thumb_abd"/>
+    <position name="thumb_rot" class="thumb_rot" joint="thumb_rot"/>
+    <position name="thumb_mcp" class="thumb_mcp" joint="thumb_mcp"/>
+    <position name="thumb_ip" class="thumb_ip" joint="thumb_ip"/>
+  </actuator>
+
+  <sensor>
+    <touch name="thumb_touch" site="thumb_touch"/>
+    <touch name="index_touch" site="index_touch"/>
+    <touch name="middle_touch" site="middle_touch"/>
+    <touch name="ring_touch" site="ring_touch"/>
+    <touch name="little_touch" site="little_touch"/>
+  </sensor>
+</mujoco>
